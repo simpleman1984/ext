@@ -49,6 +49,33 @@ func CopyAllConfigFiles(destDir string, goOS GoOS) error {
 		return err
 	}
 
+	//复制vps的默认配置文件
+	src = filepath.Join(srcDir, "config_client.json")
+	dest = filepath.Join(destDir, "config.json")
+
+	if err := CopyFile(src, dest); err != nil {
+		return err
+	}
+
+	src = filepath.Join(srcDir, "config_server.json")
+	dest = filepath.Join(destDir, "config_server.json")
+
+	if err := CopyFile(src, dest); err != nil {
+		return err
+	}
+	src = filepath.Join(srcDir, "ngrok.cfg")
+	dest = filepath.Join(destDir, "ngrok.cfg")
+
+	if err := CopyFile(src, dest); err != nil {
+		return err
+	}
+	src = filepath.Join(srcDir, "ngrok.md")
+	dest = filepath.Join(destDir, "ngrok.md")
+
+	if err := CopyFile(src, dest); err != nil {
+		return err
+	}
+
 	src = filepath.Join(srcDir, "geoip.dat")
 	dest = filepath.Join(destDir, "geoip.dat")
 

@@ -92,6 +92,11 @@ func main() {
 		return
 	}
 
+	//编译ngrok 客户端
+	ngrokUtil := getTargetFile("ngrok", v2rayOS)
+	ngrokUtilFull := filepath.Join(targetDir, ngrokUtil)
+	build.BuildNgrok(ngrokUtilFull,v2rayOS, v2rayArch)
+
 	if *flagSignBinary {
 		gpgPass := os.Getenv("GPG_SIGN_PASS")
 		//if err != nil {
