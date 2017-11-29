@@ -17,6 +17,7 @@ var (
 	flagArchive      = flag.Bool("zip", false, "Whether to make an archive of files or not.")
 	flagMetadataFile = flag.String("metadata", "metadata.txt", "File to store metadata info of released packages.")
 	flagSignBinary   = flag.Bool("sign", false, "Whether or not to sign the binaries.")
+	flagEncryptedZip = flag.Bool("encrypt", false, "Also generate encrypted zip files.")
 
 	binPath string
 )
@@ -84,10 +85,10 @@ func main() {
 		}
 	}
 
-	confUtil := getTargetFile("conf", v2rayOS)
+	confUtil := getTargetFile("v2ctl", v2rayOS)
 	confUtilFull := filepath.Join(targetDir, confUtil)
-	if err := build.BuildV2RayCore(confUtilFull, v2rayOS, v2rayArch, false); err != nil {
-		fmt.Println("Unable to build V2Ray config: " + err.Error())
+	if err := build.GoBuild("v2ray.com/ext/tools/control/main", confUtilFull, v2rayOS, v2rayArch, ""); err != nil {
+		fmt.Println("Unable to build V2Ray control: " + err.Error())
 		return
 	}
 
@@ -103,7 +104,7 @@ func main() {
 		}
 
 		if err := build.GPGSignFile(confUtilFull, gpgPass); err != nil {
-			fmt.Println("Unable to sign conf util: " + err.Error())
+			fmt.Println("Unable to sign control util: " + err.Error())
 			return
 		}
 
@@ -125,7 +126,7 @@ func main() {
 		suffix := build.GetSuffix(v2rayOS, v2rayArch)
 		zipFile := "v2ray" + suffix + ".zip"
 		root := filepath.Base(targetDir)
-		err = build.ZipFolder(root, zipFile)
+		err = build.SevenZipFolder(root, zipFile)
 		if err != nil {
 			fmt.Printf("Unable to create archive (%s): %v\n", zipFile, err)
 		}
@@ -144,5 +145,11 @@ func main() {
 
 		metaWriter.Append(meta)
 		metaWriter.Close()
+
+		if *flagEncryptedZip {
+			if err := build.SevenZipBuild(root, "vencrypted"+suffix+".7z", meta.Checksum()); err != nil {
+				fmt.Println("Failed to generate encrypted zip file.")
+			}
+		}
 	}
 }

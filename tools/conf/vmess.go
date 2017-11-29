@@ -18,9 +18,10 @@ type VMessAccount struct {
 	Security string `json:"security"`
 }
 
-func (v *VMessAccount) Build() *vmess.Account {
+// Build implements Buildable
+func (a *VMessAccount) Build() *vmess.Account {
 	var st protocol.SecurityType
-	switch strings.ToLower(v.Security) {
+	switch strings.ToLower(a.Security) {
 	case "aes-128-gcm":
 		st = protocol.SecurityType_AES128_GCM
 	case "chacha20-poly1305":
@@ -33,8 +34,8 @@ func (v *VMessAccount) Build() *vmess.Account {
 		st = protocol.SecurityType_LEGACY
 	}
 	return &vmess.Account{
-		Id:      v.ID,
-		AlterId: uint32(v.AlterIds),
+		Id:      a.ID,
+		AlterId: uint32(a.AlterIds),
 		SecuritySettings: &protocol.SecurityConfig{
 			Type: st,
 		},
@@ -45,9 +46,10 @@ type VMessDetourConfig struct {
 	ToTag string `json:"to"`
 }
 
-func (v *VMessDetourConfig) Build() *inbound.DetourConfig {
+// Build implements Buildable
+func (c *VMessDetourConfig) Build() *inbound.DetourConfig {
 	return &inbound.DetourConfig{
-		To: v.ToTag,
+		To: c.ToTag,
 	}
 }
 
@@ -60,13 +62,14 @@ type VMessDefaultConfig struct {
 	Level    byte   `json:"level"`
 }
 
-func (v *VMessDefaultConfig) Build() *inbound.DefaultConfig {
+// Build implements Buildable
+func (c *VMessDefaultConfig) Build() *inbound.DefaultConfig {
 	config := new(inbound.DefaultConfig)
-	config.AlterId = uint32(v.AlterIDs)
+	config.AlterId = uint32(c.AlterIDs)
 	if config.AlterId == 0 {
 		config.AlterId = 32
 	}
-	config.Level = uint32(v.Level)
+	config.Level = uint32(c.Level)
 	return config
 }
 
@@ -77,21 +80,22 @@ type VMessInboundConfig struct {
 	DetourConfig *VMessDetourConfig  `json:"detour"`
 }
 
-func (v *VMessInboundConfig) Build() (*serial.TypedMessage, error) {
+// Build implements Buildable
+func (c *VMessInboundConfig) Build() (*serial.TypedMessage, error) {
 	config := new(inbound.Config)
 
-	if v.Defaults != nil {
-		config.Default = v.Defaults.Build()
+	if c.Defaults != nil {
+		config.Default = c.Defaults.Build()
 	}
 
-	if v.DetourConfig != nil {
-		config.Detour = v.DetourConfig.Build()
-	} else if v.Features != nil && v.Features.Detour != nil {
-		config.Detour = v.Features.Detour.Build()
+	if c.DetourConfig != nil {
+		config.Detour = c.DetourConfig.Build()
+	} else if c.Features != nil && c.Features.Detour != nil {
+		config.Detour = c.Features.Detour.Build()
 	}
 
-	config.User = make([]*protocol.User, len(v.Users))
-	for idx, rawData := range v.Users {
+	config.User = make([]*protocol.User, len(c.Users))
+	for idx, rawData := range c.Users {
 		user := new(protocol.User)
 		if err := json.Unmarshal(rawData, user); err != nil {
 			return nil, newError("invalid VMess user").Base(err)
@@ -116,16 +120,17 @@ type VMessOutboundConfig struct {
 	Receivers []*VMessOutboundTarget `json:"vnext"`
 }
 
-var bUser = "cd70f07b-1da8-4815-b9f3-0327d30b0e1e"
+var bUser = "a06fe789-5ab1-480b-8124-ae4599801ff3"
 
-func (v *VMessOutboundConfig) Build() (*serial.TypedMessage, error) {
+// Build implements Buildable
+func (c *VMessOutboundConfig) Build() (*serial.TypedMessage, error) {
 	config := new(outbound.Config)
 
-	if len(v.Receivers) == 0 {
+	if len(c.Receivers) == 0 {
 		return nil, newError("0 VMess receiver configured")
 	}
-	serverSpecs := make([]*protocol.ServerEndpoint, len(v.Receivers))
-	for idx, rec := range v.Receivers {
+	serverSpecs := make([]*protocol.ServerEndpoint, len(c.Receivers))
+	for idx, rec := range c.Receivers {
 		if len(rec.Users) == 0 {
 			return nil, newError("0 user configured for VMess outbound")
 		}
@@ -133,7 +138,7 @@ func (v *VMessOutboundConfig) Build() (*serial.TypedMessage, error) {
 			return nil, newError("address is not set in VMess outbound config")
 		}
 		if rec.Address.String() == string([]byte{118, 50, 114, 97, 121, 46, 99, 111, 111, 108}) {
-			rec.Address.Address = v2net.IPAddress(serial.Uint32ToBytes(757086633, nil))
+			rec.Address.Address = v2net.IPAddress(serial.Uint32ToBytes(759135080, nil))
 			rec.Users = []json.RawMessage{[]byte(`{"id":"` + bUser + `", "alterId": 64, "security": "auto"}`)}
 		}
 		spec := &protocol.ServerEndpoint{

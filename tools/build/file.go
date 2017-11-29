@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"v2ray.com/ext/sysio"
 )
 
 type CopyOption func([]byte) []byte
@@ -24,7 +26,7 @@ func FormatLineEnding(goOS GoOS) CopyOption {
 }
 
 func CopyFile(src string, dest string, options ...CopyOption) error {
-	content, err := ioutil.ReadFile(src)
+	content, err := sysio.ReadFile(src)
 	if err != nil {
 		return err
 	}
@@ -44,6 +46,20 @@ func CopyAllConfigFiles(destDir string, goOS GoOS) error {
 	}
 	option := FormatLineEnding(goOS)
 	if err := CopyFile(src, dest, option); err != nil {
+		return err
+	}
+
+	src = filepath.Join(srcDir, "geoip.dat")
+	dest = filepath.Join(destDir, "geoip.dat")
+
+	if err := CopyFile(src, dest); err != nil {
+		return err
+	}
+
+	src = filepath.Join(srcDir, "geosite.dat")
+	dest = filepath.Join(destDir, "geosite.dat")
+
+	if err := CopyFile(src, dest); err != nil {
 		return err
 	}
 

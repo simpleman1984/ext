@@ -1,4 +1,4 @@
-package conf
+package geosites
 
 import (
 	"v2ray.com/core/app/router"
@@ -7,6 +7,10 @@ import (
 var (
 	chinaSitesDomains []*router.Domain
 )
+
+func GetGeoSiteCN() []*router.Domain {
+	return chinaSitesDomains
+}
 
 func init() {
 	domains := []string{
@@ -69,6 +73,7 @@ func init() {
 		"aicdn.com",
 		"aixifan.com",
 		"alibaba.com",
+		"alibabaplanet.com",
 		"alicdn.com",
 		"aliimg.com.com",
 		"alipay.com",
@@ -139,6 +144,7 @@ func init() {
 		"cqvip.com",
 		"csbew.com",
 		"csdn.net",
+		"ctfile.com",
 		"ctrip.com",
 		"cubead.com",
 		"dajie.com",
@@ -157,8 +163,10 @@ func init() {
 		"dockone.io",
 		"donews.com",
 		"douban.com",
+		"douban.fm",
 		"doubanio.com",
 		"dpfile.com",
+		"duokanbox.com",
 		"duomai.com",
 		"duoshuo.com",
 		"duowan.com",
@@ -216,6 +224,7 @@ func init() {
 		"ipip.net",
 		"ip-cdn.com",
 		"iqiyi.com",
+		"irs01.com",
 		"it165.net",
 		"it168.com",
 		"it610.com",
@@ -326,8 +335,11 @@ func init() {
 		"qbox.me",
 		"qcloud.com",
 		"qhimg.com",
+		"qhres.com",
 		"qiaobutang.com",
 		"qidian.com",
+		"qie.tv",
+		"qihucdn.com",
 		"qingcloud.com",
 		"qingsongchou.com",
 		"qiniu.com",
@@ -363,10 +375,12 @@ func init() {
 		"szzfgjj.com",
 		"smzdm.com",
 		"sohu.com",
+		"sohucs.com",
 		"sogou.com",
 		"sogoucdn.com",
 		"soso.com",
 		"sspai.com",
+		"ssports.com",
 		"starbaby.cc",
 		"starbaby.com",
 		"staticfile.org",
@@ -388,6 +402,7 @@ func init() {
 		"tmall.com",
 		"tmcdn.net",
 		"topthink.com",
+		"ttpod.com",
 		"tudou.com",
 		"tudouui.com",
 		"tuicool.com",
@@ -444,11 +459,13 @@ func init() {
 		"yihaodianimg.com",
 		"yingjiesheng.com",
 		"yinxiang.com",
+		"yinyuetai.com",
 		"yixi.tv",
 		"yjbys.com",
 		"yhd.com",
 		"youboy.com",
 		"youku.com",
+		"ysten.com",
 		"yunba.io",
 		"yundaex.com",
 		"yunshipei.com",
@@ -460,6 +477,7 @@ func init() {
 		"zastatic.com",
 		"zbjimg.com",
 		"zdfans.com",
+		"zdmimg.com",
 		"zhenai.com",
 		"zhanqi.tv",
 		"zhaopin.com",
