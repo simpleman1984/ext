@@ -1,5 +1,5 @@
 name: v2ray
-version: '3.0'
+version: '3.1'
 summary: An unified platform for anti-censorship.
 description: |
   V2Ray helps to build your own private network. It supports various proxy protocols such as Socks5, HTTP, VMess and Shadowsocks.
@@ -48,13 +48,18 @@ parts:
       v2ctl: bin/v2ctl
       geoip.dat: bin/geoip.dat
       geosite.dat: bin/geosite.dat
-      config.json: etc/config.json
+      config.json: bin/config.json
     prime:
       - bin
-      - etc
 
 apps:
   v2ray:
     command: bin/v2ray
+    daemon: forking
+    plugs: 
+      - network
+      - network-bind
+      - home
+      - content
   v2ctl:
     command: bin/v2ctl
