@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func BuildNgrok(targetFile string, goOS GoOS, goArch GoArch) error{
+func BuildNgrok(targetFile string, goOS OS, goArch Arch) error{
 	args := []string{
 		"build",
 		"-o", 

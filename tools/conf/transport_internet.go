@@ -6,6 +6,7 @@ import (
 
 	"v2ray.com/core/common/serial"
 	"v2ray.com/core/transport/internet"
+	"v2ray.com/core/transport/internet/http"
 	"v2ray.com/core/transport/internet/kcp"
 	"v2ray.com/core/transport/internet/tcp"
 	"v2ray.com/core/transport/internet/tls"
@@ -38,7 +39,7 @@ type KCPConfig struct {
 	HeaderConfig    json.RawMessage `json:"header"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (c *KCPConfig) Build() (*serial.TypedMessage, error) {
 	config := new(kcp.Config)
 
@@ -100,7 +101,7 @@ type TCPConfig struct {
 	HeaderConfig json.RawMessage `json:"header"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (c *TCPConfig) Build() (*serial.TypedMessage, error) {
 	config := new(tcp.Config)
 	if len(c.HeaderConfig) > 0 {
@@ -124,7 +125,7 @@ type WebSocketConfig struct {
 	Headers map[string]string `json:"headers"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (c *WebSocketConfig) Build() (*serial.TypedMessage, error) {
 	path := c.Path
 	if len(path) == 0 && len(c.Path2) > 0 {
@@ -145,6 +146,21 @@ func (c *WebSocketConfig) Build() (*serial.TypedMessage, error) {
 	return serial.ToTypedMessage(config), nil
 }
 
+type HTTPConfig struct {
+	Host *StringList `json:"host"`
+	Path string      `json:"path"`
+}
+
+func (c *HTTPConfig) Build() (*serial.TypedMessage, error) {
+	config := &http.Config{
+		Path: c.Path,
+	}
+	if c.Host != nil {
+		config.Host = []string(*c.Host)
+	}
+	return serial.ToTypedMessage(config), nil
+}
+
 type TLSCertConfig struct {
 	CertFile string `json:"certificateFile"`
 	KeyFile  string `json:"keyFile"`
@@ -155,7 +171,7 @@ type TLSConfig struct {
 	ServerName string           `json:"serverName"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (c *TLSConfig) Build() (*serial.TypedMessage, error) {
 	config := new(tls.Config)
 	config.Certificate = make([]*tls.Certificate, len(c.Certs))
@@ -183,7 +199,7 @@ func (c *TLSConfig) Build() (*serial.TypedMessage, error) {
 
 type TransportProtocol string
 
-// Build implements Builable.
+// Build implements Buildable.
 func (p TransportProtocol) Build() (internet.TransportProtocol, error) {
 	switch strings.ToLower(string(p)) {
 	case "tcp":
@@ -192,21 +208,24 @@ func (p TransportProtocol) Build() (internet.TransportProtocol, error) {
 		return internet.TransportProtocol_MKCP, nil
 	case "ws", "websocket":
 		return internet.TransportProtocol_WebSocket, nil
+	case "h2", "http":
+		return internet.TransportProtocol_HTTP, nil
 	default:
 		return internet.TransportProtocol_TCP, newError("Config: unknown transport protocol: ", p)
 	}
 }
 
 type StreamConfig struct {
-	Network     *TransportProtocol `json:"network"`
-	Security    string             `json:"security"`
-	TLSSettings *TLSConfig         `json:"tlsSettings"`
-	TCPSettings *TCPConfig         `json:"tcpSettings"`
-	KCPSettings *KCPConfig         `json:"kcpSettings"`
-	WSSettings  *WebSocketConfig   `json:"wsSettings"`
+	Network      *TransportProtocol `json:"network"`
+	Security     string             `json:"security"`
+	TLSSettings  *TLSConfig         `json:"tlsSettings"`
+	TCPSettings  *TCPConfig         `json:"tcpSettings"`
+	KCPSettings  *KCPConfig         `json:"kcpSettings"`
+	WSSettings   *WebSocketConfig   `json:"wsSettings"`
+	HTTPSettings *HTTPConfig        `json:"httpSettings"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 	config := &internet.StreamConfig{
 		Protocol: internet.TransportProtocol_TCP,
@@ -260,6 +279,16 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 			Settings: ts,
 		})
 	}
+	if c.HTTPSettings != nil {
+		ts, err := c.HTTPSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build HTTP config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			Protocol: internet.TransportProtocol_HTTP,
+			Settings: ts,
+		})
+	}
 	return config, nil
 }
 
@@ -267,7 +296,7 @@ type ProxyConfig struct {
 	Tag string `json:"tag"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (v *ProxyConfig) Build() (*internet.ProxyConfig, error) {
 	if len(v.Tag) == 0 {
 		return nil, newError("Proxy tag is not set.")

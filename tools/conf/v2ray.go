@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"v2ray.com/core"
+	"v2ray.com/core/app/dispatcher"
 	"v2ray.com/core/app/proxyman"
 	v2net "v2ray.com/core/common/net"
 	"v2ray.com/core/common/serial"
@@ -53,8 +54,8 @@ type InboundConnectionConfig struct {
 	DomainOverride *StringList     `json:"domainOverride"`
 }
 
-// Build implements Builable.
-func (c *InboundConnectionConfig) Build() (*proxyman.InboundHandlerConfig, error) {
+// Build implements Buildable.
+func (c *InboundConnectionConfig) Build() (*core.InboundHandlerConfig, error) {
 	receiverConfig := &proxyman.ReceiverConfig{
 		PortRange: &v2net.PortRange{
 			From: uint32(c.Port),
@@ -94,7 +95,7 @@ func (c *InboundConnectionConfig) Build() (*proxyman.InboundHandlerConfig, error
 		return nil, err
 	}
 
-	return &proxyman.InboundHandlerConfig{
+	return &core.InboundHandlerConfig{
 		Tag:              c.Tag,
 		ReceiverSettings: serial.ToTypedMessage(receiverConfig),
 		ProxySettings:    ts,
@@ -123,8 +124,8 @@ type OutboundConnectionConfig struct {
 	MuxSettings   *MuxConfig      `json:"mux"`
 }
 
-// Build implements Builable.
-func (c *OutboundConnectionConfig) Build() (*proxyman.OutboundHandlerConfig, error) {
+// Build implements Buildable.
+func (c *OutboundConnectionConfig) Build() (*core.OutboundHandlerConfig, error) {
 	senderSettings := &proxyman.SenderConfig{}
 
 	if c.SendThrough != nil {
@@ -165,7 +166,7 @@ func (c *OutboundConnectionConfig) Build() (*proxyman.OutboundHandlerConfig, err
 		return nil, err
 	}
 
-	return &proxyman.OutboundHandlerConfig{
+	return &core.OutboundHandlerConfig{
 		SenderSettings: serial.ToTypedMessage(senderSettings),
 		ProxySettings:  ts,
 		Tag:            c.Tag,
@@ -178,7 +179,7 @@ type InboundDetourAllocationConfig struct {
 	RefreshMin  *uint32 `json:"refresh"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (c *InboundDetourAllocationConfig) Build() (*proxyman.AllocationStrategy, error) {
 	config := new(proxyman.AllocationStrategy)
 	switch strings.ToLower(c.Strategy) {
@@ -217,8 +218,8 @@ type InboundDetourConfig struct {
 	DomainOverride *StringList                    `json:"domainOverride"`
 }
 
-// Build implements Builable.
-func (c *InboundDetourConfig) Build() (*proxyman.InboundHandlerConfig, error) {
+// Build implements Buildable.
+func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	receiverSettings := &proxyman.ReceiverConfig{}
 
 	if c.PortRange == nil {
@@ -266,7 +267,7 @@ func (c *InboundDetourConfig) Build() (*proxyman.InboundHandlerConfig, error) {
 		return nil, err
 	}
 
-	return &proxyman.InboundHandlerConfig{
+	return &core.InboundHandlerConfig{
 		Tag:              c.Tag,
 		ReceiverSettings: serial.ToTypedMessage(receiverSettings),
 		ProxySettings:    ts,
@@ -283,8 +284,8 @@ type OutboundDetourConfig struct {
 	MuxSettings   *MuxConfig      `json:"mux"`
 }
 
-// Build implements Builable.
-func (c *OutboundDetourConfig) Build() (*proxyman.OutboundHandlerConfig, error) {
+// Build implements Buildable.
+func (c *OutboundDetourConfig) Build() (*core.OutboundHandlerConfig, error) {
 	senderSettings := &proxyman.SenderConfig{}
 
 	if c.SendThrough != nil {
@@ -327,7 +328,7 @@ func (c *OutboundDetourConfig) Build() (*proxyman.OutboundHandlerConfig, error) 
 		return nil, err
 	}
 
-	return &proxyman.OutboundHandlerConfig{
+	return &core.OutboundHandlerConfig{
 		SenderSettings: serial.ToTypedMessage(senderSettings),
 		Tag:            c.Tag,
 		ProxySettings:  ts,
@@ -345,14 +346,31 @@ type Config struct {
 	OutboundDetours []OutboundDetourConfig    `json:"outboundDetour"`
 	Transport       *TransportConfig          `json:"transport"`
 	Policy          *PolicyConfig             `json:"policy"`
+	Api             *ApiConfig                `json:"api"`
 }
 
-// Build implements Builable.
+// Build implements Buildable.
 func (c *Config) Build() (*core.Config, error) {
-	config := new(core.Config)
+	config := &core.Config{
+		App: []*serial.TypedMessage{
+			serial.ToTypedMessage(&dispatcher.Config{}),
+			serial.ToTypedMessage(&proxyman.InboundConfig{}),
+			serial.ToTypedMessage(&proxyman.OutboundConfig{}),
+		},
+	}
+
+	if c.Api != nil {
+		apiConf, err := c.Api.Build()
+		if err != nil {
+			return nil, err
+		}
+		config.App = append(config.App, serial.ToTypedMessage(apiConf))
+	}
 
 	if c.LogConfig != nil {
 		config.App = append(config.App, serial.ToTypedMessage(c.LogConfig.Build()))
+	} else {
+		config.App = append(config.App, serial.ToTypedMessage(DefaultLogConfig()))
 	}
 
 	if c.Transport != nil {

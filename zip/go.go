@@ -1,4 +1,4 @@
-package build
+package zip
 
 import (
 	"archive/zip"
@@ -28,11 +28,21 @@ func (worker *ZipWorker) zipAllFiles(path string, info os.FileInfo, err error) e
 	if info.IsDir() {
 		return nil
 	}
-	fileWriter, err := worker.zipWriter.Create(path)
+	fileReader, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	fileReader, err := os.Open(path)
+	fileInfo, err := fileReader.Stat()
+	if err != nil {
+		return err
+	}
+	fileHeader, err := zip.FileInfoHeader(fileInfo)
+	if err != nil {
+		return err
+	}
+	fileHeader.Name = path
+	fileHeader.Method = zip.Deflate
+	fileWriter, err := worker.zipWriter.CreateHeader(fileHeader)
 	if err != nil {
 		return err
 	}
@@ -44,7 +54,7 @@ func (worker *ZipWorker) close() {
 	worker.zipWriter.Close()
 }
 
-func ZipFolder(folder string, file string) error {
+func goZipFolder(folder string, file string) error {
 	if _, err := os.Stat(file); err == nil {
 		os.Remove(file)
 	}

@@ -3,37 +3,40 @@ package build
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"fmt"
 )
 
-type GoOS string
+// OS is a GoOS value for target operating system.
+type OS string
 
 const (
-	Windows   = GoOS("windows")
-	MacOS     = GoOS("darwin")
-	Linux     = GoOS("linux")
-	FreeBSD   = GoOS("freebsd")
-	OpenBSD   = GoOS("openbsd")
-	UnknownOS = GoOS("unknown")
+	Windows   = OS("windows")
+	MacOS     = OS("darwin")
+	Linux     = OS("linux")
+	FreeBSD   = OS("freebsd")
+	OpenBSD   = OS("openbsd")
+	UnknownOS = OS("unknown")
 )
 
-type GoArch string
+// Arch is a GoArch value for CPU architecture.
+type Arch string
 
 const (
-	X86         = GoArch("386")
-	Amd64       = GoArch("amd64")
-	Arm         = GoArch("arm")
-	Arm64       = GoArch("arm64")
-	Mips64      = GoArch("mips64")
-	Mips64LE    = GoArch("mips64le")
-	Mips        = GoArch("mips")
-	MipsLE      = GoArch("mipsle")
-	S390X       = GoArch("s390x")
-	UnknownArch = GoArch("unknown")
+	X86         = Arch("386")
+	Amd64       = Arch("amd64")
+	Arm         = Arch("arm")
+	Arm64       = Arch("arm64")
+	Mips64      = Arch("mips64")
+	Mips64LE    = Arch("mips64le")
+	Mips        = Arch("mips")
+	MipsLE      = Arch("mipsle")
+	S390X       = Arch("s390x")
+	UnknownArch = Arch("unknown")
 )
 
-func ParseOS(rawOS string) GoOS {
+func ParseOS(rawOS string) OS {
 	osStr := strings.ToLower(rawOS)
 	switch osStr {
 	case "windows", "win":
@@ -51,7 +54,7 @@ func ParseOS(rawOS string) GoOS {
 	}
 }
 
-func ParseArch(rawArch string) GoArch {
+func ParseArch(rawArch string) Arch {
 	archStr := strings.ToLower(rawArch)
 	switch archStr {
 	case "x86", "386", "i386":
@@ -77,7 +80,7 @@ func ParseArch(rawArch string) GoArch {
 	}
 }
 
-func GetSuffix(os GoOS, arch GoArch) string {
+func GetSuffix(os OS, arch Arch) string {
 	suffix := "-custom"
 	switch os {
 	case Windows:
@@ -131,8 +134,39 @@ func GetSuffix(os GoOS, arch GoArch) string {
 	return suffix
 }
 
-func GoBuild(source string, targetFile string, goOS GoOS, goArch GoArch, ldFlags string, tags ...string) error {
+func createDirectoryFor(file string) error {
+	return os.MkdirAll(filepath.Dir(file), os.ModePerm)
+}
+
+type GoTarget struct {
+	Source  string
+	Target  string
+	OS      OS
+	Arch    Arch
+	LdFlags []string
+	ArmOpt  string
+	MipsOpt string
+	Tags    []string
+}
+
+// Envs returns the environment variables for this build.
+func (t *GoTarget) Envs() []string {
+	envs := []string{"GOOS=" + string(t.OS), "GOARCH=" + string(t.Arch), "CGO_ENABLED=0"}
+	if len(t.ArmOpt) > 0 {
+		envs = append(envs, "GOARM="+t.ArmOpt)
+	}
+	if len(t.MipsOpt) > 0 {
+		envs = append(envs, "GOMIPS="+t.MipsOpt)
+	}
+	return envs
+}
+
+func (t *GoTarget) BuildTo(directory string) (*Output, error) {
 	goPath := os.Getenv("GOPATH")
+	targetFile := filepath.Join(directory, t.Target)
+	if err := createDirectoryFor(targetFile); err != nil {
+		return nil, err
+	}
 	args := []string{
 		"build",
 		"-o", targetFile,
@@ -140,25 +174,25 @@ func GoBuild(source string, targetFile string, goOS GoOS, goArch GoArch, ldFlags
 		"-gcflags", "-trimpath=" + goPath,
 		"-asmflags", "-trimpath=" + goPath,
 	}
-	if len(ldFlags) > 0 {
-		args = append(args, "-ldflags", ldFlags)
+	if len(t.LdFlags) > 0 {
+		args = append(args, "-ldflags", strings.Join(t.LdFlags, " "))
 	}
-	if len(tags) > 0 {
-		args = append(args, "-tags", strings.Join(tags, ","))
+	if len(t.Tags) > 0 {
+		args = append(args, "-tags", strings.Join(t.Tags, ","))
 	}
-	args = append(args, source)
+	args = append(args, t.Source)
 
 	for index, value := range args {
 		fmt.Printf("args[%d]=%d \n", index, value)
 	}
 
 	cmd := exec.Command("go", args...)
-	cmd.Env = append(cmd.Env, "GOOS="+string(goOS), "GOARCH="+string(goArch), "CGO_ENABLED=0")
+	cmd.Env = append(cmd.Env, t.Envs()...)
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	output, err := cmd.CombinedOutput()
 	if len(output) > 0 {
 		os.Stdout.Write(output)
 	}
 
-	return err
+	return &Output{Generated: targetFile}, err
 }

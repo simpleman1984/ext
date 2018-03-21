@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	xbuild "v2ray.com/ext/build"
 	"v2ray.com/ext/tools/build"
+	"v2ray.com/ext/zip"
 )
 
 var (
@@ -17,17 +19,16 @@ var (
 	flagArchive      = flag.Bool("zip", false, "Whether to make an archive of files or not.")
 	flagMetadataFile = flag.String("metadata", "metadata.txt", "File to store metadata info of released packages.")
 	flagSignBinary   = flag.Bool("sign", false, "Whether or not to sign the binaries.")
-	flagEncryptedZip = flag.Bool("encrypt", false, "Also generate encrypted zip files.")
 
 	binPath string
 )
 
-func createTargetDirectory(version string, goOS build.GoOS, goArch build.GoArch) (string, error) {
+func createTargetDirectory(version string, goOS xbuild.OS, goArch xbuild.Arch) (string, error) {
 	var targetDir string
 	if len(*flagTargetDir) > 0 {
 		targetDir = *flagTargetDir
 	} else {
-		suffix := build.GetSuffix(goOS, goArch)
+		suffix := xbuild.GetSuffix(goOS, goArch)
 
 		targetDir = filepath.Join(binPath, "v2ray-"+version+suffix)
 		if version != "custom" {
@@ -39,9 +40,9 @@ func createTargetDirectory(version string, goOS build.GoOS, goArch build.GoArch)
 	return targetDir, err
 }
 
-func getTargetFile(name string, goOS build.GoOS) string {
+func getTargetFile(name string, goOS xbuild.OS) string {
 	suffix := ""
-	if goOS == build.Windows {
+	if goOS == xbuild.Windows {
 		suffix += ".exe"
 	}
 	return name + suffix
@@ -52,12 +53,19 @@ func getBinPath() string {
 	return filepath.Join(GOPATH, "bin")
 }
 
+func isOfficialBuild() bool {
+	version := os.Getenv("TRAVIS_TAG")
+	return len(version) > 0
+}
+
 func main() {
 	flag.Parse()
 	binPath = getBinPath()
 
-	v2rayOS := build.ParseOS(*flagTargetOS)
-	v2rayArch := build.ParseArch(*flagTargetArch)
+  fmt.Println(*flagTargetOS)
+
+	v2rayOS := xbuild.ParseOS(*flagTargetOS)
+	v2rayArch := xbuild.ParseArch(*flagTargetArch)
 
 	version := os.Getenv("TRAVIS_TAG")
 
@@ -72,68 +80,37 @@ func main() {
 		fmt.Println("Unable to create directory " + targetDir + ": " + err.Error())
 	}
 
-	targetFile := getTargetFile("v2ray", v2rayOS)
-	targetFileFull := filepath.Join(targetDir, targetFile)
-	if err := build.BuildV2RayCore(targetFileFull, v2rayOS, v2rayArch, false); err != nil {
-		fmt.Println("Unable to build V2Ray: " + err.Error())
-		return
-	}
-	if v2rayOS == build.Windows {
-		if err := build.BuildV2RayCore(filepath.Join(targetDir, "w"+targetFile), v2rayOS, v2rayArch, true); err != nil {
-			fmt.Println("Unable to build V2Ray no console: " + err.Error())
-			return
-		}
-	}
-
-	confUtil := getTargetFile("v2ctl", v2rayOS)
-	confUtilFull := filepath.Join(targetDir, confUtil)
-	if err := build.GoBuild("v2ray.com/ext/tools/control/main", confUtilFull, v2rayOS, v2rayArch, "-s -w"); err != nil {
-		fmt.Println("Unable to build V2Ray control: " + err.Error())
-		return
+	if *flagSignBinary {
+		build.OptionSign = true
 	}
 
 	//编译ngrok 客户端
 	ngrokUtil := getTargetFile("ngrok", v2rayOS)
 	ngrokUtilFull := filepath.Join(targetDir, ngrokUtil)
-	build.BuildNgrok(ngrokUtilFull,v2rayOS, v2rayArch)
+	xbuild.BuildNgrok(ngrokUtilFull,v2rayOS, v2rayArch)
 
-	if *flagSignBinary {
-		gpgPass := os.Getenv("GPG_SIGN_PASS")
-		//if err != nil {
-		//	fmt.Println("Unable get GPG pass: " + err.Error())
-		//	return
-		//}
-		if err := build.GPGSignFile(targetFileFull, gpgPass); err != nil {
-			fmt.Println("Unable to sign V2Ray binary: " + err.Error())
+	targets := build.GetReleaseTargets(v2rayOS, v2rayArch)
+	for _, target := range targets {
+		if _, err := target.BuildTo(targetDir); err != nil {
+			fmt.Println("Failed to build V2Ray on", v2rayArch, "for", v2rayOS, "with error", err.Error())
 			return
 		}
-
-		if err := build.GPGSignFile(confUtilFull, gpgPass); err != nil {
-			fmt.Println("Unable to sign control util: " + err.Error())
-			return
-		}
-
-		if v2rayOS == build.Windows {
-			if err := build.GPGSignFile(filepath.Join(targetDir, "w"+targetFile), gpgPass); err != nil {
-				fmt.Println("Unable to sign V2Ray no console: " + err.Error())
-			}
-		}
-	}
-
-	if err := build.CopyAllConfigFiles(targetDir, v2rayOS); err != nil {
-		fmt.Println("Unable to copy config files: " + err.Error())
 	}
 
 	if *flagArchive {
-		if err := os.Chdir(binPath); err != nil {
-			fmt.Printf("Unable to switch to directory (%s): %v\n", binPath, err)
+		zipTarget := &xbuild.ZipTarget{
+			Source: xbuild.PlainPath(targetDir),
+			Target: "v2ray" + xbuild.GetSuffix(v2rayOS, v2rayArch) + ".zip",
 		}
-		suffix := build.GetSuffix(v2rayOS, v2rayArch)
-		zipFile := "v2ray" + suffix + ".zip"
-		root := filepath.Base(targetDir)
-		err = build.SevenZipFolder(root, zipFile)
+
+		if isOfficialBuild() {
+			zipTarget.Options = append(zipTarget.Options, zip.With7Zip())
+		}
+
+		output, err := zipTarget.BuildTo(filepath.Dir(targetDir))
 		if err != nil {
-			fmt.Printf("Unable to create archive (%s): %v\n", zipFile, err)
+			fmt.Printf("Unable to create archive (%s): %v\n", zipTarget.Target, err)
+			return
 		}
 
 		metaWriter, err := build.NewFileMetadataWriter(filepath.Join(binPath, *flagMetadataFile))
@@ -142,6 +119,7 @@ func main() {
 			return
 		}
 
+		zipFile := output.Generated
 		meta, err := build.GenerateFileMetadata(zipFile)
 		if err != nil {
 			fmt.Println("Failed to generate metadata for file: ", zipFile, err)
@@ -150,11 +128,5 @@ func main() {
 
 		metaWriter.Append(meta)
 		metaWriter.Close()
-
-		if *flagEncryptedZip {
-			if err := build.SevenZipBuild(root, "vencrypted"+suffix+".7z", meta.Checksum()); err != nil {
-				fmt.Println("Failed to generate encrypted zip file.")
-			}
-		}
 	}
 }
