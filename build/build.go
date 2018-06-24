@@ -12,12 +12,13 @@ import (
 type OS string
 
 const (
-	Windows   = OS("windows")
-	MacOS     = OS("darwin")
-	Linux     = OS("linux")
-	FreeBSD   = OS("freebsd")
-	OpenBSD   = OS("openbsd")
-	UnknownOS = OS("unknown")
+	Windows      = OS("windows")
+	MacOS        = OS("darwin")
+	Linux        = OS("linux")
+	FreeBSD      = OS("freebsd")
+	OpenBSD      = OS("openbsd")
+	DragonflyBSD = OS("dragonfly")
+	UnknownOS    = OS("unknown")
 )
 
 // Arch is a GoArch value for CPU architecture.
@@ -49,6 +50,8 @@ func ParseOS(rawOS string) OS {
 		return FreeBSD
 	case "openbsd":
 		return OpenBSD
+	case "dragonfly", "dragonflybsd":
+		return DragonflyBSD
 	default:
 		return UnknownOS
 	}
@@ -128,6 +131,13 @@ func GetSuffix(os OS, arch Arch) string {
 			suffix = "-openbsd-32"
 		case Amd64:
 			suffix = "-openbsd-64"
+		}
+	case DragonflyBSD:
+		switch arch {
+		case X86:
+			suffix = "-dragonfly-32"
+		case Amd64:
+			suffix = "-dragonfly-64"
 		}
 	}
 
