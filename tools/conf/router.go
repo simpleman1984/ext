@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"v2ray.com/core/app/router"
-	v2net "v2ray.com/core/common/net"
+	"v2ray.com/core/common/net"
 	"v2ray.com/ext/sysio"
 
 	"github.com/golang/protobuf/proto"
@@ -63,9 +63,9 @@ func ParseIP(s string) (*router.CIDR, error) {
 		addr = s[:i]
 		mask = s[i+1:]
 	}
-	ip := v2net.ParseAddress(addr)
+	ip := net.ParseAddress(addr)
 	switch ip.Family() {
-	case v2net.AddressFamilyIPv4:
+	case net.AddressFamilyIPv4:
 		bits := uint32(32)
 		if len(mask) > 0 {
 			bits64, err := strconv.ParseUint(mask, 10, 32)
@@ -81,7 +81,7 @@ func ParseIP(s string) (*router.CIDR, error) {
 			Ip:     []byte(ip.IP()),
 			Prefix: bits,
 		}, nil
-	case v2net.AddressFamilyIPv6:
+	case net.AddressFamilyIPv6:
 		bits := uint32(128)
 		if len(mask) > 0 {
 			bits64, err := strconv.ParseUint(mask, 10, 32)
@@ -158,6 +158,7 @@ func parseFieldRule(msg json.RawMessage) (*router.RoutingRule, error) {
 		SourceIP   *StringList  `json:"source"`
 		User       *StringList  `json:"user"`
 		InboundTag *StringList  `json:"inboundTag"`
+		Protocols  *StringList  `json:"protocol"`
 	}
 	rawFieldRule := new(RawFieldRule)
 	err := json.Unmarshal(msg, rawFieldRule)
@@ -274,6 +275,12 @@ func parseFieldRule(msg json.RawMessage) (*router.RoutingRule, error) {
 	if rawFieldRule.InboundTag != nil {
 		for _, s := range *rawFieldRule.InboundTag {
 			rule.InboundTag = append(rule.InboundTag, s)
+		}
+	}
+
+	if rawFieldRule.Protocols != nil {
+		for _, s := range *rawFieldRule.Protocols {
+			rule.Protocol = append(rule.Protocol, s)
 		}
 	}
 
