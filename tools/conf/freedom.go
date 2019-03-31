@@ -4,9 +4,9 @@ import (
 	"net"
 	"strings"
 
+	"github.com/golang/protobuf/proto"
 	v2net "v2ray.com/core/common/net"
 	"v2ray.com/core/common/protocol"
-	"v2ray.com/core/common/serial"
 	"v2ray.com/core/proxy/freedom"
 )
 
@@ -18,12 +18,16 @@ type FreedomConfig struct {
 }
 
 // Build implements Buildable
-func (c *FreedomConfig) Build() (*serial.TypedMessage, error) {
+func (c *FreedomConfig) Build() (proto.Message, error) {
 	config := new(freedom.Config)
 	config.DomainStrategy = freedom.Config_AS_IS
-	domainStrategy := strings.ToLower(c.DomainStrategy)
-	if domainStrategy == "useip" || domainStrategy == "use_ip" {
+	switch strings.ToLower(c.DomainStrategy) {
+	case "useip", "use_ip":
 		config.DomainStrategy = freedom.Config_USE_IP
+	case "useip4", "useipv4", "use_ipv4", "use_ip_v4", "use_ip4":
+		config.DomainStrategy = freedom.Config_USE_IP4
+	case "useip6", "useipv6", "use_ipv6", "use_ip_v6", "use_ip6":
+		config.DomainStrategy = freedom.Config_USE_IP6
 	}
 	config.Timeout = 600
 	if c.Timeout != nil {
@@ -49,5 +53,5 @@ func (c *FreedomConfig) Build() (*serial.TypedMessage, error) {
 			config.DestinationOverride.Server.Address = v2net.NewIPOrDomain(v2net.ParseAddress(host))
 		}
 	}
-	return serial.ToTypedMessage(config), nil
+	return config, nil
 }

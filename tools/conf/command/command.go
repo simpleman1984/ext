@@ -1,11 +1,11 @@
 package command
 
-//go:generate go run $GOPATH/src/v2ray.com/core/common/errors/errorgen/main.go -pkg command -path Ext,Tools,Conf,Command
+//go:generate errorgen
 
 import (
 	"os"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"v2ray.com/core/common"
 	"v2ray.com/ext/tools/conf/serial"
 	"v2ray.com/ext/tools/control"

@@ -83,13 +83,13 @@ func main() {
 		if err != nil {
 			return err
 		}
+		content = bytes.Replace(content, []byte("\"golang.org/x/net/context\""), []byte("\"context\""), 1)
+
 		pos := bytes.Index(content, []byte("\npackage"))
 		if pos > 0 {
-			if err := ioutil.WriteFile(path, content[pos+1:], info.Mode()); err != nil {
-				return err
-			}
+			content = content[pos+1:]
 		}
 
-		return nil
+		return ioutil.WriteFile(path, content, info.Mode())
 	}))
 }

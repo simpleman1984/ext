@@ -1,6 +1,9 @@
 package conf
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 type ConfigCreator func() interface{}
 
@@ -38,12 +41,11 @@ func NewJSONConfigLoader(cache ConfigCreatorCache, idKey string, configKey strin
 }
 
 func (v *JSONConfigLoader) LoadWithID(raw []byte, id string) (interface{}, error) {
-	creator, found := v.cache[id]
-	if !found {
-		return nil, newError("unknown config id: ", id).AtError()
+	id = strings.ToLower(id)
+	config, err := v.cache.CreateConfig(id)
+	if err != nil {
+		return nil, err
 	}
-
-	config := creator()
 	if err := json.Unmarshal(raw, config); err != nil {
 		return nil, err
 	}
@@ -66,10 +68,12 @@ func (v *JSONConfigLoader) Load(raw []byte) (interface{}, string, error) {
 	rawConfig := json.RawMessage(raw)
 	if len(v.configKey) > 0 {
 		configValue, found := obj[v.configKey]
-		if !found {
-			return nil, "", newError(v.configKey, " not found in JSON content").AtError()
+		if found {
+			rawConfig = configValue
+		} else {
+			// Default to empty json object.
+			rawConfig = json.RawMessage([]byte("{}"))
 		}
-		rawConfig = configValue
 	}
 	config, err := v.LoadWithID([]byte(rawConfig), id)
 	if err != nil {

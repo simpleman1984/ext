@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"v2ray.com/core/common/serial"
 	"v2ray.com/core/transport"
 	"v2ray.com/core/transport/internet"
 )
@@ -11,6 +12,7 @@ type TransportConfig struct {
 	WSConfig   *WebSocketConfig    `json:"wsSettings"`
 	HTTPConfig *HTTPConfig         `json:"httpSettings"`
 	DSConfig   *DomainSocketConfig `json:"dsSettings"`
+	QUICConfig *QUICConfig         `json:"quicSettings"`
 }
 
 // Build implements Buildable.
@@ -23,8 +25,8 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 			return nil, newError("failed to build TCP config").Base(err).AtError()
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			Protocol: internet.TransportProtocol_TCP,
-			Settings: ts,
+			ProtocolName: "tcp",
+			Settings:     serial.ToTypedMessage(ts),
 		})
 	}
 
@@ -34,8 +36,8 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 			return nil, newError("failed to build mKCP config").Base(err).AtError()
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			Protocol: internet.TransportProtocol_MKCP,
-			Settings: ts,
+			ProtocolName: "mkcp",
+			Settings:     serial.ToTypedMessage(ts),
 		})
 	}
 
@@ -45,8 +47,8 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 			return nil, newError("failed to build WebSocket config").Base(err)
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			Protocol: internet.TransportProtocol_WebSocket,
-			Settings: ts,
+			ProtocolName: "websocket",
+			Settings:     serial.ToTypedMessage(ts),
 		})
 	}
 
@@ -56,8 +58,8 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 			return nil, newError("Failed to build HTTP config.").Base(err)
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			Protocol: internet.TransportProtocol_HTTP,
-			Settings: ts,
+			ProtocolName: "http",
+			Settings:     serial.ToTypedMessage(ts),
 		})
 	}
 
@@ -67,8 +69,19 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 			return nil, newError("Failed to build DomainSocket config.").Base(err)
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			Protocol: internet.TransportProtocol_DomainSocket,
-			Settings: ds,
+			ProtocolName: "domainsocket",
+			Settings:     serial.ToTypedMessage(ds),
+		})
+	}
+
+	if c.QUICConfig != nil {
+		qs, err := c.QUICConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build QUIC config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "quic",
+			Settings:     serial.ToTypedMessage(qs),
 		})
 	}
 

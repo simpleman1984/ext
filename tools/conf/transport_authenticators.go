@@ -1,49 +1,59 @@
 package conf
 
 import (
-	"v2ray.com/core/common/serial"
+	"sort"
+
+	"github.com/golang/protobuf/proto"
+
 	"v2ray.com/core/transport/internet/headers/http"
 	"v2ray.com/core/transport/internet/headers/noop"
 	"v2ray.com/core/transport/internet/headers/srtp"
 	"v2ray.com/core/transport/internet/headers/tls"
 	"v2ray.com/core/transport/internet/headers/utp"
 	"v2ray.com/core/transport/internet/headers/wechat"
+	"v2ray.com/core/transport/internet/headers/wireguard"
 )
 
 type NoOpAuthenticator struct{}
 
-func (NoOpAuthenticator) Build() (*serial.TypedMessage, error) {
-	return serial.ToTypedMessage(new(noop.Config)), nil
+func (NoOpAuthenticator) Build() (proto.Message, error) {
+	return new(noop.Config), nil
 }
 
 type NoOpConnectionAuthenticator struct{}
 
-func (NoOpConnectionAuthenticator) Build() (*serial.TypedMessage, error) {
-	return serial.ToTypedMessage(new(noop.ConnectionConfig)), nil
+func (NoOpConnectionAuthenticator) Build() (proto.Message, error) {
+	return new(noop.ConnectionConfig), nil
 }
 
 type SRTPAuthenticator struct{}
 
-func (SRTPAuthenticator) Build() (*serial.TypedMessage, error) {
-	return serial.ToTypedMessage(new(srtp.Config)), nil
+func (SRTPAuthenticator) Build() (proto.Message, error) {
+	return new(srtp.Config), nil
 }
 
 type UTPAuthenticator struct{}
 
-func (UTPAuthenticator) Build() (*serial.TypedMessage, error) {
-	return serial.ToTypedMessage(new(utp.Config)), nil
+func (UTPAuthenticator) Build() (proto.Message, error) {
+	return new(utp.Config), nil
 }
 
 type WechatVideoAuthenticator struct{}
 
-func (WechatVideoAuthenticator) Build() (*serial.TypedMessage, error) {
-	return serial.ToTypedMessage(new(wechat.VideoConfig)), nil
+func (WechatVideoAuthenticator) Build() (proto.Message, error) {
+	return new(wechat.VideoConfig), nil
+}
+
+type WireguardAuthenticator struct{}
+
+func (WireguardAuthenticator) Build() (proto.Message, error) {
+	return new(wireguard.WireguardConfig), nil
 }
 
 type DTLSAuthenticator struct{}
 
-func (DTLSAuthenticator) Build() (*serial.TypedMessage, error) {
-	return serial.ToTypedMessage(new(tls.PacketConfig)), nil
+func (DTLSAuthenticator) Build() (proto.Message, error) {
+	return new(tls.PacketConfig), nil
 }
 
 type HTTPAuthenticatorRequest struct {
@@ -51,6 +61,15 @@ type HTTPAuthenticatorRequest struct {
 	Method  string                 `json:"method"`
 	Path    StringList             `json:"path"`
 	Headers map[string]*StringList `json:"headers"`
+}
+
+func sortMapKeys(m map[string]*StringList) []string {
+	var keys []string
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (v *HTTPAuthenticatorRequest) Build() (*http.RequestConfig, error) {
@@ -97,7 +116,9 @@ func (v *HTTPAuthenticatorRequest) Build() (*http.RequestConfig, error) {
 
 	if len(v.Headers) > 0 {
 		config.Header = make([]*http.Header, 0, len(v.Headers))
-		for key, value := range v.Headers {
+		headerNames := sortMapKeys(v.Headers)
+		for _, key := range headerNames {
+			value := v.Headers[key]
 			if value == nil {
 				return nil, newError("empty HTTP header value: " + key).AtError()
 			}
@@ -163,7 +184,9 @@ func (v *HTTPAuthenticatorResponse) Build() (*http.ResponseConfig, error) {
 
 	if len(v.Headers) > 0 {
 		config.Header = make([]*http.Header, 0, len(v.Headers))
-		for key, value := range v.Headers {
+		headerNames := sortMapKeys(v.Headers)
+		for _, key := range headerNames {
+			value := v.Headers[key]
 			if value == nil {
 				return nil, newError("empty HTTP header value: " + key).AtError()
 			}
@@ -182,7 +205,7 @@ type HTTPAuthenticator struct {
 	Response HTTPAuthenticatorResponse `json:"response"`
 }
 
-func (v *HTTPAuthenticator) Build() (*serial.TypedMessage, error) {
+func (v *HTTPAuthenticator) Build() (proto.Message, error) {
 	config := new(http.Config)
 	requestConfig, err := v.Request.Build()
 	if err != nil {
@@ -196,5 +219,5 @@ func (v *HTTPAuthenticator) Build() (*serial.TypedMessage, error) {
 	}
 	config.Response = responseConfig
 
-	return serial.ToTypedMessage(config), nil
+	return config, nil
 }
